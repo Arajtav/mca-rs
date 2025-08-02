@@ -13,14 +13,52 @@ pub struct Region {
     chunks: [Option<Chunk>; 1024],
 }
 
+#[repr(u8)]
+enum ChunkPayloadCompression {
+    Uncompressed = 3,
+}
+
 #[allow(unused)]
 pub struct Chunk {
     timestamp: u32,
     data: Vec<u8>,
 }
 
+#[derive(Error, Debug)]
+pub enum ChunkParseError {
+    #[error("input too short, expected at least {0} bytes but got {1}")]
+    InputTooShort(usize, usize),
+
+    #[error("the compression format the chunk uses is not supported")]
+    UnsupportedCompression,
+}
+
+impl Chunk {
+    fn parse_bytes(timestamp: u32, bytes: &[u8]) -> Result<Self, ChunkParseError> {
+        if bytes.len() < 5 {
+            return Err(ChunkParseError::InputTooShort(5, bytes.len()));
+        }
+        let (header, data) = bytes.split_at(5);
+        let len = u32::from_be_bytes(header[..4].try_into().unwrap()) as usize;
+        if bytes.len() < len + 4 {
+            return Err(ChunkParseError::InputTooShort(len + 4, bytes.len()));
+        }
+
+        let compression_format = header[4];
+        let data = &data[..len];
+
+        if compression_format != ChunkPayloadCompression::Uncompressed as u8 {
+            return Err(ChunkParseError::UnsupportedCompression);
+        }
+
+        Ok(Self {
+            timestamp,
+            data: data.to_owned(),
+        })
+    }
+}
+
 impl Region {
-    // TODO: proper error handling
     pub fn parse_bytes(bytes: &[u8]) -> Result<Self, RegionParseError> {
         let len = bytes.len();
         if len < 8192 {
@@ -52,10 +90,12 @@ impl Region {
                 }
 
                 let offset = (offset as usize) << 12;
-                Some(Chunk {
+                Chunk::parse_bytes(
                     timestamp,
-                    data: bytes[offset..offset + ((sector_count as usize) << 12)].to_owned(),
-                })
+                    &bytes[offset..offset + ((sector_count as usize) << 12)],
+                )
+                // TODO: proper error handling
+                .ok()
             })
             .collect();
 
