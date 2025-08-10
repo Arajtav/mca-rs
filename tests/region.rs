@@ -1,4 +1,4 @@
-use mca_rs::Region;
+use mca_rs::region::Region;
 
 #[test]
 fn test_parse_empty_region() {
