@@ -7,3 +7,9 @@ fn test_parse_empty_region() {
 
     assert_eq!(region.count_chunks(), 0);
 }
+
+#[test]
+fn test_parse_real_region() {
+    let region = Region::parse_bytes(include_bytes!("data/r.0.0.mca")).unwrap();
+    assert_eq!(region.count_chunks(), 975);
+}

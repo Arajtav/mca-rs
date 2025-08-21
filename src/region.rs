@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::chunk::Chunk;
+use crate::chunk::{Chunk, parse_chunk};
 
 #[derive(Error, Debug)]
 pub enum RegionParseError {
@@ -11,6 +11,7 @@ pub enum RegionParseError {
     InputInvalidSize(usize),
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Region {
     chunks: [Option<Chunk>; 1024],
 }
@@ -47,12 +48,9 @@ impl Region {
                 }
 
                 let offset = (offset as usize) << 12;
-                Chunk::parse_bytes(
-                    timestamp,
-                    &bytes[offset..offset + ((sector_count as usize) << 12)],
-                )
-                // TODO: proper error handling
-                .ok()
+                parse_chunk(&bytes[offset..offset + ((sector_count as usize) << 12)])
+                    // TODO: proper error handling
+                    .ok()
             })
             .collect();
 
@@ -63,6 +61,15 @@ impl Region {
     }
 
     pub fn count_chunks(&self) -> u16 {
-        self.chunks.iter().filter(|chunk| chunk.is_some()).count() as u16
+        1024 - self.chunks.iter().filter(|&chunk| chunk.is_none()).count() as u16
+    }
+
+    pub fn get_chunk(&self, x: usize, z: usize) -> Option<&Chunk> {
+        if x >= 32 || z >= 32 {
+            return None;
+        }
+
+        let index = x + z * 32;
+        self.chunks[index].as_ref()
     }
 }
