@@ -80,8 +80,8 @@ pub fn parse_chunk(bytes: &[u8]) -> Result<Chunk, ChunkParseError> {
     }
     let (header, body) = bytes.split_at(5);
     let len = u32::from_be_bytes(header[..4].try_into().unwrap()) as usize;
-    if bytes.len() < len + 4 {
-        return Err(ChunkParseError::InputTooShort(len + 4, bytes.len()));
+    if body.len() < len {
+        return Err(ChunkParseError::InputTooShort(len + 5, bytes.len()));
     }
 
     let compression_format = header[4];
